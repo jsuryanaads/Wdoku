@@ -5,3 +5,4 @@ export const rupiah = new Intl.NumberFormat('id-ID', {
 });
 
 export const formatRupiah = (value) => rupiah.format(Number(value) || 0);
+export const formatCurrency = formatRupiah;
