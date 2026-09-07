@@ -18,11 +18,11 @@ function App() {
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setSession(data.session);
-        setLoading(false);
-      }
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return;
+      if (error) console.error('Session error:', error);
+      setSession(data?.session ?? null);
+      setLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (mounted) setSession(nextSession);
@@ -35,17 +35,21 @@ function App() {
 
   const email = session.user.email || 'Pengguna';
   const initials = email.slice(0, 2).toUpperCase();
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error('Logout error:', error);
+  };
 
   return (
     <div className="app-shell">
       <aside className={`sidebar ${open ? 'open' : ''}`}>
-        <div className="brand"><div className="brand-mark"><Archive size={21} /></div><div><strong>Wdoku</strong><span>Document Manager</span></div><button className="icon-btn mobile-only" onClick={() => setOpen(false)}><X size={20}/></button></div>
-        <nav>{menu.map(([label, Icon]) => <button key={label} className={active === label ? 'nav-item active' : 'nav-item'} onClick={() => {setActive(label); setOpen(false)}}><Icon size={19}/><span>{label}</span></button>)}</nav>
-        <div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{initials}</div><div><strong>{email}</strong><span>Akun saya</span></div></div><button className="logout" onClick={() => supabase.auth.signOut()}><LogIn size={17}/> Keluar</button></div>
+        <div className="brand"><div className="brand-mark"><Archive size={21} /></div><div><strong>Wdoku</strong><span>Document Manager</span></div><button className="icon-btn mobile-only" onClick={() => setOpen(false)} aria-label="Tutup menu"><X size={20}/></button></div>
+        <nav aria-label="Navigasi utama">{menu.map(([label, Icon]) => <button key={label} className={active === label ? 'nav-item active' : 'nav-item'} onClick={() => {setActive(label); setOpen(false)}}><Icon size={19}/><span>{label}</span></button>)}</nav>
+        <div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{initials}</div><div><strong>{email}</strong><span>Akun saya</span></div></div><button className="logout" onClick={logout}><LogIn size={17}/> Keluar</button></div>
       </aside>
-      {open && <div className="overlay" onClick={() => setOpen(false)} />}
+      {open && <div className="overlay" onClick={() => setOpen(false)} aria-hidden="true" />}
       <main className="main">
-        <header className="topbar"><button className="icon-btn mobile-menu" onClick={() => setOpen(true)}><Menu size={22}/></button><div><h1>{active}</h1><p>Kelola dokumen Anda dengan rapi dan aman.</p></div><div className="top-actions"><div className="search"><Search size={18}/><input placeholder="Cari dokumen..." /></div><div className="avatar">{initials}</div></div></header>
+        <header className="topbar"><button className="icon-btn mobile-menu" onClick={() => setOpen(true)} aria-label="Buka menu"><Menu size={22}/></button><div><h1>{active}</h1><p>Kelola dokumen Anda dengan rapi dan aman.</p></div><div className="top-actions"><div className="search"><Search size={18}/><input aria-label="Cari dokumen" placeholder="Cari dokumen..." /></div><div className="avatar">{initials}</div></div></header>
         <section className="content">{active === 'Dashboard' ? <Dashboard /> : <EmptyPage title={active} />}</section>
       </main>
     </div>
@@ -59,19 +63,28 @@ function Auth() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
-    setBusy(true); setMessage('');
-    const result = mode === 'login'
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
-    setBusy(false);
-    if (result.error) return setMessage(result.error.message);
-    if (mode === 'register' && !result.data.session) setMessage('Registrasi berhasil. Periksa email Anda untuk konfirmasi akun.');
+    if (busy) return;
+    setBusy(true); setMessage(''); setError(false);
+    try {
+      const result = mode === 'login'
+        ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        : await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: name.trim() } } });
+      if (result.error) throw result.error;
+      if (mode === 'register' && !result.data?.session) setMessage('Registrasi berhasil. Periksa email Anda untuk konfirmasi akun.');
+    } catch (err) {
+      setError(true);
+      setMessage(err?.message || 'Terjadi kesalahan. Silakan coba lagi.');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  return <div className="auth-page"><div className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Archive size={22}/></div><div><strong>Wdoku</strong><span>Document Manager</span></div></div><h1>{mode === 'login' ? 'Masuk ke Wdoku' : 'Buat akun Wdoku'}</h1><p className="auth-subtitle">{mode === 'login' ? 'Kelola dokumen pribadi Anda dengan aman.' : 'Mulai menyimpan dan mengelola dokumen Anda.'}</p><form onSubmit={submit}>{mode === 'register' && <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" required /></label>}<label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" required /></label><label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 6 karakter" minLength={6} required /></label>{message && <div className="auth-message"><Mail size={16}/><span>{message}</span></div>}<button className="primary auth-submit" disabled={busy}>{busy ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar'}</button></form><button className="auth-switch" onClick={() => {setMode(mode === 'login' ? 'register' : 'login'); setMessage('')}}>{mode === 'login' ? 'Belum punya akun? Daftar' : 'Sudah punya akun? Masuk'}</button></div></div>;
+  const switchMode = () => { setMode(mode === 'login' ? 'register' : 'login'); setMessage(''); setError(false); };
+  return <div className="auth-page"><div className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Archive size={22}/></div><div><strong>Wdoku</strong><span>Document Manager</span></div></div><h1>{mode === 'login' ? 'Masuk ke Wdoku' : 'Buat akun Wdoku'}</h1><p className="auth-subtitle">{mode === 'login' ? 'Kelola dokumen pribadi Anda dengan aman.' : 'Mulai menyimpan dan mengelola dokumen Anda.'}</p><form onSubmit={submit} noValidate>{mode === 'register' && <label>Nama lengkap<input value={name} onChange={e => setName(e.target.value)} placeholder="Nama Anda" autoComplete="name" required /></label>}<label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nama@email.com" autoComplete="email" required /></label><label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 6 karakter" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={6} required /></label>{message && <div className={`auth-message ${error ? 'error' : ''}`} role="alert"><Mail size={16}/><span>{message}</span></div>}<button type="submit" className="primary auth-submit" disabled={busy}>{busy ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar'}</button></form><button type="button" className="auth-switch" onClick={switchMode}>{mode === 'login' ? 'Belum punya akun? Daftar' : 'Sudah punya akun? Masuk'}</button></div></div>;
 }
 
 function Dashboard() { return <><div className="welcome"><div><span className="eyebrow">WDOKU v1.0</span><h2>Selamat datang di Wdoku</h2><p>Semua dokumen pribadi Anda, tersimpan dalam satu tempat.</p></div><button className="primary"><FileText size={18}/> Tambah Dokumen</button></div><div className="stats"><Stat label="Total Dokumen" value="0" icon={FileText}/><Stat label="Aktif" value="0" icon={Archive}/><Stat label="Draft" value="0" icon={Folder}/><Stat label="Arsip" value="0" icon={Archive}/></div><div className="panel"><div className="panel-head"><div><h3>Dokumen Terbaru</h3><p>Dokumen yang baru Anda tambahkan.</p></div><button className="ghost">Lihat semua</button></div><div className="empty"><div className="empty-icon"><FileText size={28}/></div><h3>Belum ada dokumen</h3><p>Tambahkan dokumen pertama Anda untuk mulai mengelola arsip.</p><button className="primary">Tambah Dokumen</button></div></div></>; }
