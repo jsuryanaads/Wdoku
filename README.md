@@ -1,8 +1,8 @@
 # Wdoku
 
-**Wdoku — Manajemen Dokumen Pribadi**
+**Wdoku — Pencatatan Keuangan Pribadi**
 
-Aplikasi web untuk menyimpan, mengelola, dan mengarsipkan dokumen pribadi secara terstruktur.
+Aplikasi web untuk mencatat pemasukan, pengeluaran, saldo, dan kategori keuangan pribadi secara sederhana dan aman.
 
 ## Teknologi
 
@@ -10,14 +10,18 @@ Aplikasi web untuk menyimpan, mengelola, dan mengarsipkan dokumen pribadi secara
 - Vite 6
 - Tailwind CSS 3
 - Lucide React
-- Recharts
-- Supabase Auth & Database
+- Supabase Auth & PostgreSQL
+- GitHub Pages
 
-## Status
+## Fitur saat ini
 
-Fondasi aplikasi dan autentikasi Supabase sudah terintegrasi. Production build tervalidasi melalui GitHub Actions.
-
-Modul berikutnya: Dokumen, Kategori, Supabase Storage, pencarian, dashboard data nyata, dan Profil.
+- Login dan registrasi pengguna dengan Supabase Auth
+- Dashboard saldo, pemasukan, pengeluaran, dan jumlah transaksi
+- CRUD dasar transaksi pemasukan/pengeluaran
+- Kategori keuangan per pengguna
+- Pencarian transaksi
+- RLS untuk isolasi data antar pengguna
+- Responsive desktop dan mobile
 
 ## Environment
 
