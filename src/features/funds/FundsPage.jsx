@@ -1,3 +1,18 @@
-export default function FundsPage() {
-  return null;
+import { useEffect, useState } from 'react';
+import { Plus, Pencil, Trash2, WalletCards } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { formatCurrency } from '../../lib/utilities/currency';
+
+const empty = { name: '', type: 'cash', balance: '0', is_active: true };
+
+export default function FundsPage({ user }) {
+  const [funds, setFunds] = useState([]); const [form, setForm] = useState(empty); const [editing, setEditing] = useState(null); const [message, setMessage] = useState('');
+  const load = async () => { const { data } = await supabase.from('finance_funds').select('*').eq('user_id', user.id).order('created_at'); setFunds(data || []); };
+  useEffect(() => { load(); }, [user.id]);
+  const save = async (e) => { e.preventDefault(); setMessage(''); const payload = { name: form.name.trim(), type: form.type, balance: Number(form.balance) || 0, is_active: form.is_active, user_id: user.id }; const result = editing ? await supabase.from('finance_funds').update(payload).eq('id', editing).eq('user_id', user.id) : await supabase.from('finance_funds').insert(payload); if (result.error) return setMessage(result.error.message); setForm(empty); setEditing(null); setMessage('Sumber dana berhasil disimpan.'); load(); };
+  const edit = (f) => setForm({ name: f.name || '', type: f.type || 'cash', balance: String(f.balance ?? 0), is_active: f.is_active !== false });
+  const remove = async (id) => { if (!confirm('Hapus sumber dana ini?')) return; const { error } = await supabase.from('finance_funds').delete().eq('id', id).eq('user_id', user.id); if (error) setMessage(error.message); else load(); };
+  return <div className="page-content"><header className="page-header"><div><p className="eyebrow">KEUANGAN</p><h1>Sumber Dana</h1><p className="muted">Kelola kas, rekening bank, dan dompet digital.</p></div></header>
+    <div className="two-column"><form className="panel form-panel" onSubmit={save}><div className="panel-heading"><h3>{editing ? 'Edit Sumber Dana' : 'Tambah Sumber Dana'}</h3></div><label>Nama<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required placeholder="Kas Utama" /></label><label>Jenis<select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}><option value="cash">Kas</option><option value="bank">Bank</option><option value="e_wallet">E-Wallet</option><option value="other">Lainnya</option></select></label><label>Saldo<input type="number" min="0" value={form.balance} onChange={e=>setForm({...form,balance:e.target.value})} /></label><label className="check"><input type="checkbox" checked={form.is_active} onChange={e=>setForm({...form,is_active:e.target.checked})}/> Aktif</label><button className="primary-button" type="submit"><Plus size={18}/>{editing ? 'Simpan Perubahan' : 'Tambah'}</button>{editing && <button type="button" className="secondary-button" onClick={()=>{setEditing(null);setForm(empty)}}>Batal</button>}{message && <div className="alert">{message}</div>}</form>
+      <section className="panel"><div className="panel-heading"><h3>Daftar Sumber Dana</h3></div>{funds.length ? funds.map(f=><div className="fund-item" key={f.id}><div className="fund-name"><WalletCards size={20}/><span><strong>{f.name}</strong><small className="muted">{f.type} · {f.is_active ? 'Aktif' : 'Nonaktif'}</small></span></div><strong>{formatCurrency(f.balance)}</strong><div className="actions"><button onClick={()=>{setEditing(f.id);edit(f)}} aria-label="Edit"><Pencil size={16}/></button><button onClick={()=>remove(f.id)} aria-label="Hapus"><Trash2 size={16}/></button></div></div>) : <div className="empty-state">Belum ada sumber dana.</div>}</section></div></div>;
 }
